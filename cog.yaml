@@ -15,7 +15,7 @@ build:
     - requests==2.31.0
     - huggingface-hub==0.21.3
   run:
-    - pip install git+https://github.com/ZhengPeng7/BiRefNet.git
+    - pip install birefnet
     - mkdir -p /src/models && wget -q "https://huggingface.co/lllyasviel/ic-light/resolve/main/iclight_sd15_fc.safetensors" -O /src/models/iclight_sd15_fc.safetensors
     - wget -q "https://huggingface.co/ZhengPeng7/BiRefNet/resolve/main/BiRefNet-general-epoch_244.pth" -O /src/models/birefnet.pth
 
