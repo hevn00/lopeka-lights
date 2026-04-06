@@ -9,13 +9,8 @@ build:
     - transformers==4.38.2
     - accelerate==0.27.2
     - safetensors==0.4.2
-    - scipy==1.11.4
-    - opencv-python-headless==4.8.0.76
     - Pillow==10.2.0
     - requests==2.31.0
     - huggingface-hub==0.21.3
-  run:
-    - pip install rembg[gpu]
-    - mkdir -p /src/models && wget -q "https://huggingface.co/lllyasviel/ic-light/resolve/main/iclight_sd15_fc.safetensors" -O /src/models/iclight_sd15_fc.safetensors
 
 predict: "predict.py:Predictor"
