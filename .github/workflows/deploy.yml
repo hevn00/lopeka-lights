@@ -1,0 +1,36 @@
+name: Deploy to Replicate
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune -af
+          df -h
+
+      - name: Install Cog
+        run: |
+          sudo curl -o /usr/local/bin/cog -L "https://github.com/replicate/cog/releases/latest/download/cog_Linux_x86_64"
+          sudo chmod +x /usr/local/bin/cog
+          cog --version
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Replicate
+        run: echo ${{ secrets.REPLICATE_API_TOKEN }} | cog login --token-stdin
+
+      - name: Push to Replicate
+        run: cog push r8.im/hevn00/lopeka-lights

@@ -1,0 +1,22 @@
+build:
+  gpu: true
+  cuda: "11.8"
+  python_version: "3.10"
+  python_packages:
+    - torch==2.1.0
+    - torchvision==0.16.0
+    - diffusers==0.27.2
+    - transformers==4.38.2
+    - accelerate==0.27.2
+    - safetensors==0.4.2
+    - scipy==1.11.4
+    - opencv-python-headless==4.8.0.76
+    - Pillow==10.2.0
+    - requests==2.31.0
+    - huggingface-hub==0.21.3
+  run:
+    - pip install git+https://github.com/ZhengPeng7/BiRefNet.git
+    - mkdir -p /src/models && wget -q "https://huggingface.co/lllyasviel/ic-light/resolve/main/iclight_sd15_fc.safetensors" -O /src/models/iclight_sd15_fc.safetensors
+    - wget -q "https://huggingface.co/ZhengPeng7/BiRefNet/resolve/main/BiRefNet-general-epoch_244.pth" -O /src/models/birefnet.pth
+
+predict: "predict.py:Predictor"
