@@ -9,7 +9,7 @@ from cog import BasePredictor, Input, Path
 from diffusers import StableDiffusionPipeline, DDIMScheduler
 from diffusers.models import UNet2DConditionModel
 from safetensors.torch import load_file
-from transformers import pipeline as hf_pipeline
+from rembg import remove as rembg_remove, new_session as rembg_session
 
 
 class Predictor(BasePredictor):
@@ -54,29 +54,9 @@ class Predictor(BasePredictor):
         print(f"[setup] IC-Light loaded — missing={len(missing)}, unexpected={len(unexpected)}")
         self.pipe.unet = self.pipe.unet.to(self.device)
 
-        # ── Load BiRefNet for foreground segmentation ───────────────────
-        print("[setup] Loading BiRefNet segmentation model...")
-        try:
-            from birefnet import BiRefNet as BiRefNetModel
-            self.birefnet = BiRefNetModel()
-            state = torch.load("/src/models/birefnet.pth", map_location="cpu")
-            # Handle both raw state_dict and wrapped checkpoint formats
-            if "state_dict" in state:
-                state = state["state_dict"]
-            self.birefnet.load_state_dict(state)
-            self.birefnet.eval()
-            self.birefnet = self.birefnet.to(self.device)
-            self.birefnet_input_size = 1024
-        except Exception as e:
-            print(f"[setup] BiRefNet direct load failed ({e}), falling back to transformers pipeline...")
-            self.birefnet = hf_pipeline(
-                "image-segmentation",
-                model="ZhengPeng7/BiRefNet",
-                trust_remote_code=True,
-                device=0 if self.device == "cuda" else -1,
-            )
-            self.birefnet_input_size = None
-
+        # ── Load rembg segmentation session ────────────────────────────
+        print("[setup] Loading rembg (u2net) session...")
+        self.rembg_session = rembg_session("u2net")
         print("[setup] Done.")
 
     # ── Public predict ──────────────────────────────────────────────────
@@ -155,44 +135,14 @@ class Predictor(BasePredictor):
         return img
 
     def _extract_mask(self, img: Image.Image) -> np.ndarray:
-        """Returns float32 H x W mask in [0, 1]."""
-        if callable(self.birefnet) and not isinstance(self.birefnet, torch.nn.Module):
-            # transformers pipeline path
-            result = self.birefnet(img, return_tensors=False)
-            if isinstance(result, list):
-                result = result[0]
-            mask_pil = result.get("mask") or result.get("segmentation")
-            if mask_pil is None:
-                raise RuntimeError("BiRefNet pipeline returned no mask")
-            mask = np.array(mask_pil).astype(np.float32) / 255.0
-        else:
-            # Direct model path
-            from torchvision import transforms
-            transform = transforms.Compose([
-                transforms.Resize((self.birefnet_input_size, self.birefnet_input_size)),
-                transforms.ToTensor(),
-                transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
-            ])
-            inp = transform(img).unsqueeze(0).to(self.device)
-            with torch.no_grad():
-                out = self.birefnet(inp)
-            # BiRefNet returns a list of predictions; take the last (finest)
-            if isinstance(out, (list, tuple)):
-                out = out[-1]
-            if isinstance(out, (list, tuple)):
-                out = out[-1]
-            pred = torch.sigmoid(out).squeeze().cpu().numpy()
-            pred = cv2.resize(pred, (img.size[0], img.size[1]), interpolation=cv2.INTER_LINEAR)
-            mask = pred.astype(np.float32)
+        """Returns float32 H x W mask in [0, 1] using rembg."""
+        # rembg returns RGBA image — alpha channel is the foreground mask
+        result_rgba = rembg_remove(img, session=self.rembg_session)
+        alpha = np.array(result_rgba.split()[-1]).astype(np.float32) / 255.0
 
-        # Resize to match img if needed
-        if mask.shape[:2] != (img.size[1], img.size[0]):
-            mask = cv2.resize(mask, (img.size[0], img.size[1]), interpolation=cv2.INTER_LINEAR)
-
-        # Refine mask with slight Gaussian blur for soft edges
-        mask = cv2.GaussianBlur(mask, (5, 5), 0)
-        mask = np.clip(mask, 0.0, 1.0)
-        return mask
+        # Soft edges
+        alpha = cv2.GaussianBlur(alpha, (5, 5), 0)
+        return np.clip(alpha, 0.0, 1.0)
 
     @staticmethod
     def _make_light_map(W: int, H: int, direction_deg: float, height: float) -> np.ndarray:
