@@ -31,6 +31,7 @@ class Predictor(BasePredictor):
         # Patch UNet to accept 8-channel input (image RGBA + light map RGB + mask)
         # IC-Light fc variant expects 8 input channels
         print("[setup] Patching UNet for 8-channel input...")
+        model_dtype = torch.float16 if self.device == "cuda" else torch.float32
         orig_conv = self.pipe.unet.conv_in
         new_in_channels = 8
         new_conv = torch.nn.Conv2d(
@@ -39,12 +40,12 @@ class Predictor(BasePredictor):
             orig_conv.kernel_size,
             orig_conv.stride,
             orig_conv.padding,
-        )
+        ).to(dtype=model_dtype)
         # Zero-init extra channels, copy existing weights
         with torch.no_grad():
             new_conv.weight.zero_()
-            new_conv.weight[:, :orig_conv.in_channels] = orig_conv.weight
-            new_conv.bias.copy_(orig_conv.bias)
+            new_conv.weight[:, :orig_conv.in_channels] = orig_conv.weight.to(dtype=model_dtype)
+            new_conv.bias.copy_(orig_conv.bias.to(dtype=model_dtype))
         self.pipe.unet.conv_in = new_conv
         self.pipe.unet.config["in_channels"] = new_in_channels
 
@@ -52,7 +53,7 @@ class Predictor(BasePredictor):
         ic_light_state = load_file("/src/models/iclight_sd15_fc.safetensors")
         missing, unexpected = self.pipe.unet.load_state_dict(ic_light_state, strict=False)
         print(f"[setup] IC-Light loaded — missing={len(missing)}, unexpected={len(unexpected)}")
-        self.pipe.unet = self.pipe.unet.to(self.device)
+        self.pipe.unet = self.pipe.unet.to(self.device, dtype=model_dtype)
 
         # ── Load rembg segmentation session ────────────────────────────
         print("[setup] Loading rembg (u2net) session...")
