@@ -11,7 +11,6 @@ from diffusers import (
     UNet2DConditionModel,
     DDIMScheduler,
 )
-from diffusers.models.attention_processor import AttnProcessor2_0
 from transformers import CLIPTextModel, CLIPTokenizer
 
 SD_NAME = "runwayml/stable-diffusion-v1-5"
@@ -79,8 +78,7 @@ class Predictor(BasePredictor):
         self.vae = self.vae.to(device=self.device, dtype=torch.bfloat16)
         self.unet = unet.to(device=self.device, dtype=torch.float16)
 
-        self.unet.set_attn_processor(AttnProcessor2_0())
-        self.vae.set_attn_processor(AttnProcessor2_0())
+        # AttnProcessor2_0 (Flash Attention) CUDA 11.8 ile uyumsuz — default processor kullan
 
         scheduler = DDIMScheduler(
             num_train_timesteps=1000,
