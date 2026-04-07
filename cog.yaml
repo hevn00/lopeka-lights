@@ -14,7 +14,9 @@ build:
     - scipy==1.11.4
     - einops==0.7.0
     - huggingface-hub==0.21.3
+    - rembg==2.0.56
+    - onnxruntime-gpu==1.17.1
   run:
-    - mkdir -p /src/models && wget -q --timeout=300 --tries=3 "https://huggingface.co/lllyasviel/ic-light/resolve/main/iclight_sd15_fbc.safetensors" -O /src/models/iclight_sd15_fbc.safetensors
+    - mkdir -p /src/models && wget -q --timeout=300 --tries=3 "https://huggingface.co/lllyasviel/ic-light/resolve/main/iclight_sd15_fc.safetensors" -O /src/models/iclight_sd15_fc.safetensors
 
 predict: "predict.py:Predictor"
