@@ -1,4 +1,5 @@
 import math
+import os
 import numpy as np
 import torch
 import safetensors.torch as sf
@@ -8,19 +9,28 @@ from diffusers import (
     StableDiffusionPipeline,
     AutoencoderKL,
     UNet2DConditionModel,
-    DPMSolverMultistepScheduler,
+    DDIMScheduler,
 )
 from diffusers.models.attention_processor import AttnProcessor2_0
 from transformers import CLIPTextModel, CLIPTokenizer
 
 SD_NAME = "runwayml/stable-diffusion-v1-5"
 MODEL_PATH = "/src/models/iclight_sd15_fbc.safetensors"
+MODEL_URL = "https://huggingface.co/lllyasviel/ic-light/resolve/main/iclight_sd15_fbc.safetensors"
 
 
 class Predictor(BasePredictor):
     def setup(self):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"[setup] device={self.device}")
+
+        # Download model weights if not already cached during build
+        if not os.path.exists(MODEL_PATH):
+            print(f"[setup] Downloading IC-Light FBC weights...")
+            os.makedirs("/src/models", exist_ok=True)
+            import urllib.request
+            urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+            print("[setup] Download complete.")
 
         print("[setup] Loading SD1.5 components...")
         self.tokenizer = CLIPTokenizer.from_pretrained(SD_NAME, subfolder="tokenizer")
@@ -72,12 +82,13 @@ class Predictor(BasePredictor):
         self.unet.set_attn_processor(AttnProcessor2_0())
         self.vae.set_attn_processor(AttnProcessor2_0())
 
-        scheduler = DPMSolverMultistepScheduler(
+        scheduler = DDIMScheduler(
             num_train_timesteps=1000,
             beta_start=0.00085,
             beta_end=0.012,
-            algorithm_type="sde-dpmsolver++",
-            use_karras_sigmas=True,
+            beta_schedule="scaled_linear",
+            clip_sample=False,
+            set_alpha_to_one=False,
             steps_offset=1,
         )
 

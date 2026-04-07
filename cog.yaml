@@ -1,22 +1,20 @@
 build:
-  python_version: "3.11"
-  cuda: "12.1"
+  gpu: true
+  cuda: "11.8"
+  python_version: "3.10"
   python_packages:
-    - torch==2.2.0
-    - torchvision
+    - torch==2.1.0
+    - torchvision==0.16.0
     - diffusers==0.27.2
-    - transformers
-    - accelerate
-    - safetensors
-    - Pillow
-    - numpy
-    - huggingface_hub
-    - scipy
-    - einops
-  system_packages:
-    - libgl1-mesa-glx
-    - libglib2.0-0
+    - transformers==4.38.2
+    - accelerate==0.27.2
+    - safetensors==0.4.2
+    - Pillow==10.2.0
+    - numpy==1.26.4
+    - scipy==1.11.4
+    - einops==0.7.0
+    - huggingface-hub==0.21.3
   run:
-    - mkdir -p /src/models && wget -q "https://huggingface.co/lllyasviel/ic-light/resolve/main/iclight_sd15_fbc.safetensors" -O /src/models/iclight_sd15_fbc.safetensors
+    - mkdir -p /src/models && wget -q --timeout=300 --tries=3 "https://huggingface.co/lllyasviel/ic-light/resolve/main/iclight_sd15_fbc.safetensors" -O /src/models/iclight_sd15_fbc.safetensors
 
 predict: "predict.py:Predictor"
