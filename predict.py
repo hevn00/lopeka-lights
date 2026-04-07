@@ -23,6 +23,11 @@ class Predictor(BasePredictor):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         print(f"[setup] device={self.device}")
 
+        # Disable flash/memory-efficient attention — incompatible with CUDA 11.8
+        torch.backends.cuda.enable_flash_sdp(False)
+        torch.backends.cuda.enable_math_sdp(True)
+        torch.backends.cuda.enable_mem_efficient_sdp(False)
+
         # Download model weights if not already cached during build
         if not os.path.exists(MODEL_PATH):
             print(f"[setup] Downloading IC-Light FBC weights...")
